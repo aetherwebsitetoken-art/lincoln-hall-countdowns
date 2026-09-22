@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SD74 Countdowns</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  :root{
+    --font:'Lexend',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    --bg:#07070c; --ink:#fff; --soft:rgba(255,255,255,.74); --faint:rgba(255,255,255,.52);
+    --glass:rgba(255,255,255,.075); --glass-2:rgba(255,255,255,.13); --line:rgba(255,255,255,.14);
+    --red:#e11d2e; --ease:cubic-bezier(.22,.8,.26,1);
+    /* theme colours (overridden per countdown) */
+    --a:#ff6b78; --b:#e11d2e; --c:#12040a;
+  }
+  [data-theme="autumn"]{--a:#ffae5c;--b:#c9431b;--c:#2a0e05}
+  [data-theme="winter"]{--a:#9fe1ff;--b:#2f7fd6;--c:#081733}
+  [data-theme="spring"]{--a:#ffb3d9;--b:#d6428f;--c:#2c0a22}
+  [data-theme="summer"]{--a:#ffe066;--b:#ff8a00;--c:#3a1600}
+  [data-theme="grad"]  {--a:#ffd34d;--b:#e11d2e;--c:#140305}
+
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);
+    font-family:var(--font);-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%}
+  button{font-family:inherit;color:inherit}
+  button,.card{-webkit-tap-highlight-color:transparent}
+  button:focus-visible,.card:focus-visible{outline:3px solid var(--a);outline-offset:3px}
+  ::-webkit-scrollbar{width:8px}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:4px}
+
+  /* ---------- Background layers ---------- */
+  .sky{position:fixed;inset:0;z-index:0;background:var(--c);transition:background 1s var(--ease)}
+  .sky::before,.sky::after{content:'';position:absolute;inset:-7%;
+    background:
+      radial-gradient(42% 38% at 20% 25%, color-mix(in srgb,var(--a) 55%,transparent), transparent 70%),
+      radial-gradient(45% 40% at 82% 70%, color-mix(in srgb,var(--b) 60%,transparent), transparent 72%),
+      radial-gradient(30% 30% at 60% 15%, color-mix(in srgb,var(--b) 35%,transparent), transparent 70%);
+    opacity:.75;animation:drift 26s ease-in-out infinite alternate;will-change:transform}
+  .sky::after{opacity:.45;animation-duration:34s;animation-direction:alternate-reverse;
+    background:
+      radial-gradient(35% 32% at 75% 20%, color-mix(in srgb,var(--a) 40%,transparent), transparent 70%),
+      radial-gradient(40% 36% at 25% 80%, color-mix(in srgb,var(--b) 45%,transparent), transparent 72%)}
+  /* Ambient motion pauses for a moment while screens swap, so the swap
+     itself stays smooth on low-powered devices (e.g. school Chromebooks). */
+  body.switching .sky::before,body.switching .sky::after,
+  body.switching .d-emoji,body.switching .big-emoji{animation-play-state:paused}
+  @keyframes drift{0%{transform:translate3d(-3%,-2%,0) scale(1)}100%{transform:translate3d(3%,3%,0) scale(1.08)}}
+  #fx{position:fixed;inset:0;z-index:2;pointer-events:none;width:100%;height:100%}
+
+  /* ---------- Screens ---------- */
+  .screen{position:fixed;inset:0;z-index:3;overflow-y:auto;overflow-x:hidden;
+    opacity:0;visibility:hidden;transform:translateY(14px) scale(.985);
+    transition:opacity .45s var(--ease),transform .45s var(--ease),visibility 0s linear .45s}
+  .screen.on{opacity:1;visibility:visible;transform:none;
+    transition:opacity .45s var(--ease),transform .45s var(--ease),visibility 0s}
+  .wrap{max-width:1120px;margin:0 auto;padding:clamp(16px,3.2vw,34px) clamp(14px,3.2vw,34px)
+    calc(clamp(20px,4vw,40px) + env(safe-area-inset-bottom))}
+
+  /* ---------- Home ---------- */
+  .top{display:flex;align-items:center;gap:13px;margin-bottom:clamp(18px,3vw,28px)}
+  .mark{width:42px;height:42px;border-radius:10px;flex-shrink:0;
+    background:repeating-linear-gradient(135deg,var(--red) 0 7px,#111 7px 14px);
+    box-shadow:0 6px 18px rgba(225,29,46,.35),inset 0 0 0 1px rgba(255,255,255,.18)}
+  .top h1{margin:0;font-size:clamp(20px,2.6vw,26px);font-weight:700;letter-spacing:-.4px;line-height:1.1}
+  .top h1 span{color:var(--a)}
+  .top p{margin:3px 0 0;font-size:12px;color:var(--faint)}
+  .status{margin-left:auto;font-size:11px;color:var(--faint);text-align:right;white-space:nowrap}
+
+  .label{font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--faint);
+    margin:0 0 10px 2px}
+
+  .feature{position:relative;overflow:hidden;border-radius:26px;padding:clamp(20px,3.4vw,34px);
+    margin-bottom:clamp(22px,3.6vw,34px);cursor:pointer;border:1px solid var(--line);isolation:isolate;
+    background:linear-gradient(135deg,var(--b),var(--c));
+    background:linear-gradient(135deg,color-mix(in srgb,var(--b) 70%,#000) 0%,color-mix(in srgb,var(--c) 90%,#000) 100%);
+    box-shadow:0 22px 60px -18px color-mix(in srgb,var(--b) 70%,transparent);
+    display:grid;grid-template-columns:auto 1fr;gap:clamp(16px,3vw,32px);align-items:center;
+    transition:transform .35s var(--ease),box-shadow .35s var(--ease);
+    animation:rise .6s var(--ease) both}
+  .feature::before{content:'';position:absolute;inset:0;z-index:-1;
+    background:radial-gradient(60% 90% at 90% 10%,color-mix(in srgb,var(--a) 45%,transparent),transparent 70%),
+               radial-gradient(50% 80% at 0% 100%,color-mix(in srgb,var(--b) 50%,transparent),transparent 70%)}
+  .feature .big-emoji{font-size:clamp(64px,11vw,120px);line-height:1;filter:drop-shadow(0 10px 22px rgba(0,0,0,.35));
+    animation:bob 5s ease-in-out infinite}
+  .feature .pill{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:700;letter-spacing:1.2px;
+    text-transform:uppercase;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.22);
+    padding:5px 11px;border-radius:999px}
+  .feature .pill i{width:7px;height:7px;border-radius:50%;background:var(--a);box-shadow:0 0 0 0 var(--a);
+    animation:ping 2s ease-out infinite}
+  .feature h2{margin:12px 0 4px;font-size:clamp(26px,4.4vw,46px);font-weight:800;letter-spacing:-1px;line-height:1.05}
+  .feature .when{font-size:clamp(13px,1.6vw,15px);color:var(--soft)}
+  .mini{display:flex;gap:clamp(8px,1.6vw,14px);margin-top:clamp(14px,2.4vw,22px);flex-wrap:wrap}
+  .mini div{background:rgba(0,0,0,.24);border:1px solid rgba(255,255,255,.14);border-radius:14px;
+    padding:10px 14px;min-width:74px;text-align:center}
+  .mini b{display:block;font-size:clamp(22px,3.4vw,32px);font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+  .mini span{font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--soft)}
+  .open{margin-top:16px;display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--ink);opacity:.9}
+  .open .arr{transition:transform .3s var(--ease)}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:clamp(12px,1.8vw,18px)}
+  .card{position:relative;overflow:hidden;border-radius:20px;padding:18px 18px 16px;cursor:pointer;text-align:left;
+    border:1px solid var(--line);isolation:isolate;min-height:176px;display:flex;flex-direction:column;
+    background:linear-gradient(160deg,var(--b),var(--c));
+    background:linear-gradient(160deg,color-mix(in srgb,var(--b) 55%,#0a0a10) 0%,color-mix(in srgb,var(--c) 92%,#000) 100%);
+    transition:transform .3s var(--ease),box-shadow .3s var(--ease),border-color .3s;
+    animation:rise .55s var(--ease) both}
+  .card::before{content:'';position:absolute;inset:0;z-index:-1;
+    background:radial-gradient(80% 70% at 100% 0%,color-mix(in srgb,var(--a) 38%,transparent),transparent 70%)}
+  .card .e{font-size:40px;line-height:1}
+  .card h3{margin:12px 0 3px;font-size:18px;font-weight:700;letter-spacing:-.3px;line-height:1.2}
+  .card .d{font-size:12.5px;color:var(--soft)}
+  .card .count{margin-top:auto;padding-top:14px;display:flex;align-items:baseline;gap:6px}
+  .card .count b{font-size:34px;font-weight:800;letter-spacing:-1px;font-variant-numeric:tabular-nums;line-height:1}
+  .card .count span{font-size:13px;color:var(--soft)}
+  .card .sub{font-size:11.5px;color:var(--faint);margin-top:4px}
+  .bar{height:5px;border-radius:999px;background:rgba(255,255,255,.14);overflow:hidden;margin-top:12px}
+  .bar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--a),#fff);
+    transform-origin:left;transition:width 1s var(--ease)}
+  .tag{position:absolute;top:14px;right:14px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+    padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.18)}
+
+  @media (hover:hover){
+    .feature:hover{transform:translateY(-3px);box-shadow:0 30px 70px -18px color-mix(in srgb,var(--b) 80%,transparent)}
+    .feature:hover .open .arr{transform:translateX(5px)}
+    .card:hover{transform:translateY(-4px);border-color:rgba(255,255,255,.3);
+      box-shadow:0 22px 44px -18px color-mix(in srgb,var(--b) 75%,transparent)}
+  }
+  .card:active,.feature:active{transform:scale(.985)}
+
+  .foot{margin-top:26px;font-size:11.5px;color:var(--faint);line-height:1.6;text-align:center}
+  .empty{text-align:center;padding:70px 20px;color:var(--soft)}
+  .empty .e{font-size:64px}
+  .empty h2{color:var(--ink);margin:12px 0 6px}
+
+  /* ---------- Countdown screen ---------- */
+  .detail{display:flex;flex-direction:column}
+  .d-top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;
+    padding:calc(12px + env(safe-area-inset-top)) clamp(12px,3vw,26px) 12px}
+  .back{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(255,255,255,.22);
+    background:rgba(0,0,0,.28);
+    padding:10px 16px 10px 12px;border-radius:999px;cursor:pointer;font-size:14px;font-weight:600;
+    transition:background .2s,transform .2s}
+  .back .arr{font-size:18px;line-height:1;transition:transform .25s var(--ease)}
+  .d-nav{margin-left:auto;display:flex;gap:8px}
+  .d-nav button{width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.22);
+    background:rgba(0,0,0,.28);
+    cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;transition:background .2s,transform .2s}
+  .d-nav button:disabled{opacity:.3;cursor:default}
+  @media (hover:hover){
+    .back:hover,.d-nav button:not(:disabled):hover{background:rgba(255,255,255,.18)}
+    .back:hover .arr{transform:translateX(-4px)}
+  }
+  .back:active,.d-nav button:active{transform:scale(.95)}
+
+  .d-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+    padding:clamp(6px,2vh,26px) clamp(14px,4vw,40px) calc(clamp(22px,5vh,48px) + env(safe-area-inset-bottom));
+    max-width:1000px;margin:0 auto;width:100%}
+  .d-emoji{font-size:clamp(56px,min(13vw,13vh),128px);line-height:1;filter:drop-shadow(0 16px 30px rgba(0,0,0,.4));
+    animation:bob 5s ease-in-out infinite}
+  .d-kicker{margin-top:clamp(8px,1.6vh,16px);font-size:clamp(11px,1.4vw,13px);font-weight:700;letter-spacing:2.2px;
+    text-transform:uppercase;color:var(--a)}
+  .d-title{margin:6px 0 6px;font-size:clamp(30px,min(7vw,8vh),72px);font-weight:800;letter-spacing:-1.5px;line-height:1.02;
+    text-shadow:0 8px 30px rgba(0,0,0,.35)}
+  .d-dates{font-size:clamp(13px,1.8vw,16px);color:var(--soft)}
+
+  .clock{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(8px,1.6vw,18px);width:100%;
+    max-width:820px;margin:clamp(18px,4vh,40px) 0 clamp(14px,3vh,28px)}
+  .unit{container-type:inline-size;position:relative;border-radius:clamp(14px,2.2vw,24px);
+    padding:clamp(10px,2.4vh,22px) 4px clamp(8px,1.8vh,16px);
+    background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.06)),rgba(10,10,18,.38);
+    border:1px solid rgba(255,255,255,.18);
+    box-shadow:0 18px 40px -18px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.2)}
+  .unit .n{display:block;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.04em;line-height:1;
+    font-size:min(44cqi,15vh,118px)}
+  .unit.d3 .n{font-size:min(31cqi,14vh,104px)}
+  .unit .n.tick{animation:tick .45s var(--ease)}
+  .unit .u{display:block;margin-top:clamp(4px,1vh,10px);font-size:clamp(9.5px,1.3vw,12px);font-weight:600;
+    letter-spacing:1.6px;text-transform:uppercase;color:var(--soft)}
+  @keyframes tick{0%{opacity:.35;transform:translateY(-14%)}100%{opacity:1;transform:none}}
+
+  .progress{width:100%;max-width:620px}
+  .progress .bar{height:9px;margin:0}
+  .p-lab{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--faint);margin-top:8px}
+  .facts{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:clamp(14px,2.8vh,24px)}
+  .fact{display:inline-flex;align-items:center;gap:7px;font-size:13px;padding:8px 14px;border-radius:999px;
+    background:rgba(0,0,0,.34);border:1px solid rgba(255,255,255,.16)}
+  .fact b{font-weight:700}
+  .d-note{max-width:600px;margin:clamp(12px,2.4vh,20px) auto 0;font-size:12.5px;line-height:1.55;color:var(--faint)}
+
+  @keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+  @keyframes bob{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-10px) rotate(2deg)}}
+  @keyframes ping{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--a) 70%,transparent)}100%{box-shadow:0 0 0 10px transparent}}
+
+  /* ---------- Small screens ---------- */
+  @media (max-width:640px){
+    .top{gap:11px}
+    .top p{display:none}
+    .status{font-size:10px}
+    .feature{grid-template-columns:1fr;border-radius:22px;text-align:left}
+    .feature .big-emoji{font-size:58px;position:absolute;top:18px;right:18px;opacity:.95}
+    .feature h2{padding-right:70px}
+    .mini div{flex:1;min-width:0;padding:9px 6px}
+    .card{min-height:0}
+    .back .txt{display:inline}
+    .unit .u{letter-spacing:1px}
+    .fact{font-size:12px;padding:7px 12px}
+  }
+  @media (max-width:360px){ .back .txt{display:none} .back{padding:10px 12px} }
+  /* Phones held sideways: shrink vertical chrome so the clock stays visible */
+  @media (max-height:500px) and (orientation:landscape){
+    .d-top{padding-top:calc(6px + env(safe-area-inset-top));padding-bottom:4px}
+    .d-body{justify-content:flex-start}
+    .d-emoji{font-size:44px}
+    .d-title{font-size:30px}
+    .clock{margin:10px 0 10px;max-width:640px}
+    .unit .n{font-size:min(40cqi,19vh,80px)}
+    .unit.d3 .n{font-size:min(30cqi,18vh,72px)}
+    .facts{margin-top:10px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+  }
+</style>
+</head>
+<body>
+<div class="sky" id="sky"></div>
+<canvas id="fx" aria-hidden="true"></canvas>
+
+<section class="screen on" id="home" aria-label="All countdowns">
+  <div class="wrap">
+    <header class="top">
+      <div class="mark" aria-hidden="true"></div>
+      <div><h1>SD74 <span>Countdowns</span></h1><p id="yearLine">Lincolnwood School District 74</p></div>
+      <div class="status" id="status"></div>
+    </header>
+    <div id="featureWrap"></div>
+    <div id="restWrap"></div>
+    <p class="foot" id="foot">Tap a countdown to open it. Dates are from the district's official school-year calendar.</p>
+  </div>
+</section>
+
+<section class="screen detail" id="detail" aria-label="Countdown">
+  <div class="d-top">
+    <button class="back" id="back" aria-label="Back to all countdowns"><span class="arr">←</span><span class="txt">All countdowns</span></button>
+    <div class="d-nav">
+      <button id="prevEv" aria-label="Previous countdown">‹</button>
+      <button id="nextEv" aria-label="Next countdown">›</button>
+    </div>
+  </div>
+  <div class="d-body">
+    <div class="d-emoji" id="dEmoji"></div>
+    <div class="d-kicker" id="dKicker"></div>
+    <h2 class="d-title" id="dTitle"></h2>
+    <div class="d-dates" id="dDates"></div>
+    <div class="clock" id="clock" role="timer" aria-live="off">
+      <div class="unit" id="uD"><span class="n">0</span><span class="u">Days</span></div>
+      <div class="unit"><span class="n">00</span><span class="u">Hours</span></div>
+      <div class="unit"><span class="n">00</span><span class="u">Minutes</span></div>
+      <div class="unit"><span class="n">00</span><span class="u">Seconds</span></div>
+    </div>
+    <div class="progress" id="progress">
+      <div class="bar"><i id="pBar" style="width:0%"></i></div>
+      <div class="p-lab"><span id="pFrom"></span><span id="pPct"></span></div>
+    </div>
+    <div class="facts" id="facts"></div>
+    <p class="d-note" id="dNote"></p>
+  </div>
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  'use strict';
+
+  // TEMPLATE. Paste embed.html into Google Sites, not this file -- the
+  // updater builds embed.html from this template with both lines below
+  // filled in. (This file still works on its own; it just won't pick up
+  // updates like the 8th grade date being posted.)
+  const LIVE_URL = /*URL_START*/''/*URL_END*/;
+  let D = /*DATA_START*/{
+ "generated_at": null,
+ "school_year": "2026-2027",
+ "timezone": "America/Chicago",
+ "first_day": "2026-08-26",
+ "countdowns": [
+  {
+   "id": "thanksgiving",
+   "title": "Thanksgiving Break",
+   "emoji": "🦃",
+   "theme": "autumn",
+   "start": "2026-11-23",
+   "end": "2026-11-27",
+   "back": "2026-11-30",
+   "kind": "break",
+   "source": "district school-year calendar",
+   "from": "2026-08-26"
+  },
+  {
+   "id": "winter",
+   "title": "Winter Break",
+   "emoji": "❄️",
+   "theme": "winter",
+   "start": "2026-12-21",
+   "end": "2027-01-01",
+   "back": "2027-01-04",
+   "note": "The last day before break, Fri, Dec 18, is an AM-only half day.",
+   "kind": "break",
+   "source": "district school-year calendar",
+   "from": "2026-11-30"
+  },
+  {
+   "id": "spring",
+   "title": "Spring Break",
+   "emoji": "🌸",
+   "theme": "spring",
+   "start": "2027-03-22",
+   "end": "2027-03-29",
+   "back": "2027-03-30",
+   "note": "Break runs Mar 22-26, and Mon, Mar 29 is also a no-school day.",
+   "kind": "break",
+   "source": "district school-year calendar",
+   "from": "2027-01-04"
+  },
+  {
+   "id": "summer",
+   "title": "Last Day of School",
+   "emoji": "☀️",
+   "theme": "summer",
+   "kind": "day",
+   "start": "2027-06-10",
+   "note": "Thu, Jun 10 assumes no emergency days are used. If they are, the last day could move to Thu, Jun 17.",
+   "here_kicker": "🎉 It's the last day! Summer starts in",
+   "source": "district school-year calendar",
+   "from": "2027-03-30"
+  },
+  {
+   "id": "eighth",
+   "title": "8th Grade - Class of 2027",
+   "emoji": "🎓",
+   "theme": "grad",
+   "kind": "day",
+   "here_kicker": "🎓 Congratulations, Class of 2027!",
+   "here_clock": false,
+   "start": "2027-06-10",
+   "provisional": true,
+   "note": "The district hasn't posted the 8th grade end-of-year date yet, so this counts down to the last day of school for now. It will switch to the 8th grade date automatically once it's on the district calendar.",
+   "source": "fallback: last day of school",
+   "from": "2027-03-30"
+  }
+ ],
+ "no_school": [
+  "2026-08-24",
+  "2026-08-25",
+  "2026-09-07",
+  "2026-10-12",
+  "2026-10-13",
+  "2026-11-03",
+  "2026-11-23",
+  "2026-11-24",
+  "2026-11-25",
+  "2026-11-26",
+  "2026-11-27",
+  "2026-12-21",
+  "2026-12-22",
+  "2026-12-23",
+  "2026-12-24",
+  "2026-12-25",
+  "2026-12-28",
+  "2026-12-29",
+  "2026-12-30",
+  "2026-12-31",
+  "2027-01-01",
+  "2027-01-18",
+  "2027-02-15",
+  "2027-03-01",
+  "2027-03-22",
+  "2027-03-23",
+  "2027-03-24",
+  "2027-03-25",
+  "2027-03-26",
+  "2027-03-29",
+  "2027-05-03",
+  "2027-05-31"
+ ],
+ "half_days": [
+  "2026-09-18",
+  "2026-10-30",
+  "2026-12-18",
+  "2027-02-12",
+  "2027-04-30"
+ ]
+}/*DATA_END*/;
+
+  const TZ = 'America/Chicago';
+  const $ = id => document.getElementById(id);
+  const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ---------------------------------------------------------------------
+  // Time: every date is school time (Central), whatever the viewer's
+  // device is set to. "?now=2026-12-22T09:30" previews a moment in time.
+  // ---------------------------------------------------------------------
+  const partsFmt = new Intl.DateTimeFormat('en-US',{timeZone:TZ,hourCycle:'h23',year:'numeric',
+      month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  function tzParts(ms){
+    const o={}; partsFmt.formatToParts(new Date(ms)).forEach(p=>{ if(p.type!=='literal') o[p.type]=+p.value; });
+    return o;
+  }
+  function tzOffset(ms){ const p=tzParts(ms); return Date.UTC(p.year,p.month-1,p.day,p.hour,p.minute,p.second)-ms; }
+  // "YYYY-MM-DD" + "HH:MM" in school time -> epoch ms
+  function at(dateKey,time){
+    const [y,m,d]=dateKey.split('-').map(Number); const [hh,mm]=(time||'00:00').split(':').map(Number);
+    let g=Date.UTC(y,m-1,d,hh,mm);
+    for(let i=0;i<2;i++) g=Date.UTC(y,m-1,d,hh,mm)-tzOffset(g);
+    return g;
+  }
+  const pad=n=>n<10?'0'+n:''+n;
+  const keyOf=ms=>{const p=tzParts(ms);return `${p.year}-${pad(p.month)}-${pad(p.day)}`;};
+  const addDays=(k,n)=>{const [y,m,d]=k.split('-').map(Number);const t=new Date(Date.UTC(y,m-1,d+n));
+    return `${t.getUTCFullYear()}-${pad(t.getUTCMonth()+1)}-${pad(t.getUTCDate())}`;};
+  const dow=k=>{const [y,m,d]=k.split('-').map(Number);return new Date(Date.UTC(y,m-1,d)).getUTCDay();};
+  const fmt=(k,o)=>{const [y,m,d]=k.split('-').map(Number);
+    return new Date(Date.UTC(y,m-1,d,12)).toLocaleDateString('en-US',Object.assign({timeZone:'UTC'},o));};
+  const fmtShort=k=>fmt(k,{weekday:'short',month:'short',day:'numeric'});
+  const fmtTime=t=>{if(!t)return'';const [h,m]=t.split(':').map(Number);return `${h%12||12}:${pad(m)} ${h<12?'AM':'PM'}`;};
+
+  let offset=0;
+  try{
+    const q=new URLSearchParams(location.search).get('now');
+    if(q){ const [dk,tm]=q.split('T'); offset=at(dk,tm||'12:00')-Date.now(); }
+  }catch(e){}
+  const now=()=>Date.now()+offset;
+
+  // ---------------------------------------------------------------------
+  // Countdown state
+  // ---------------------------------------------------------------------
+  let ITEMS=[], NOSCHOOL=new Set(), HALF=new Set(), current=null;
+
+  function prepare(){
+    NOSCHOOL=new Set(D.no_school||[]); HALF=new Set(D.half_days||[]);
+    ITEMS=(D.countdowns||[]).map(c=>{
+      const target=at(c.start,c.time);
+      const isBreak=(c.kind||'break')==='break';
+      const endsAt=isBreak ? at(c.back||addDays(c.end||c.start,1)) : at(addDays(c.start,1));
+      return Object.assign({},c,{target,endsAt,fromMs:at(c.from||D.first_day||c.start),isBreak});
+    }).sort((a,b)=>a.target-b.target);
+  }
+  function stateOf(it,t=now()){
+    if(t<it.target) return 'upcoming';
+    if(t<it.endsAt) return 'here';
+    return 'past';
+  }
+  const visible=()=>ITEMS.filter(it=>stateOf(it)!=='past');
+
+  // School days strictly between today and the target day: weekdays that
+  // aren't no-school days. Half days count as school days.
+  function schoolDaysLeft(it){
+    let k=addDays(keyOf(now()),1), n=0, half=0;
+    const stop=it.start;
+    while(k<stop){
+      const w=dow(k);
+      if(w>0&&w<6&&!NOSCHOOL.has(k)){ n++; if(HALF.has(k)) half++; }
+      k=addDays(k,1);
+    }
+    return {n,half};
+  }
+  function split(ms){
+    ms=Math.max(0,ms); const s=Math.floor(ms/1000);
+    return {d:Math.floor(s/86400),h:Math.floor(s%86400/3600),m:Math.floor(s%3600/60),s:s%60};
+  }
+  function dateLine(it){
+    if(it.isBreak){
+      const range = it.end && it.end!==it.start ? `${fmtShort(it.start)} – ${fmtShort(it.end)}` : fmtShort(it.start);
+      return it.back ? `${range}  ·  Back ${fmtShort(it.back)}` : range;
+    }
+    return fmt(it.start,{weekday:'long',month:'long',day:'numeric',year:'numeric'})+(it.time?` · ${fmtTime(it.time)}`:'');
+  }
+  function progressOf(it){
+    const t=now(); if(t>=it.target) return 1;
+    return Math.min(1,Math.max(0,(t-it.fromMs)/(it.target-it.fromMs)));
+  }
+
+  // ---------------------------------------------------------------------
+  // Home screen
+  // ---------------------------------------------------------------------
+  const homeEl=$('home'), detailEl=$('detail'), featureWrap=$('featureWrap'), restWrap=$('restWrap');
+
+  function el(tag,cls,text){const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e;}
+
+  function renderHome(){
+    const list=visible();
+    featureWrap.innerHTML=''; restWrap.innerHTML='';
+    $('yearLine').textContent=`Lincolnwood School District 74 · ${(D.school_year||'').replace('-','–')} school year`;
+    if(!list.length){
+      const e=el('div','empty');
+      e.append(el('div','e','🏖️'),el('h2',null,'See you next school year!'),
+               el('p',null,"All of this year's breaks have passed. New countdowns appear once next year's calendar is added."));
+      featureWrap.appendChild(e); setTheme('summer'); return;
+    }
+    const [first,...rest]=list;
+    setTheme(first.theme);
+
+    // Up next
+    const f=el('div','feature'); f.dataset.theme=first.theme; f.tabIndex=0; f.setAttribute('role','button');
+    f.setAttribute('aria-label',`Open the ${first.title} countdown`);
+    const left=el('div','big-emoji',first.emoji);
+    const right=el('div');
+    const pill=el('span','pill'); pill.append(el('i'),document.createTextNode(stateOf(first)==='here'?'Happening now':'Up next'));
+    right.append(pill, el('h2',null,first.title), el('div','when',dateLine(first)));
+    const mini=el('div','mini'); mini.id='miniClock';
+    ['Days','Hours','Min','Sec'].forEach(u=>{const d=el('div'); d.append(el('b',null,'0'),el('span',null,u)); mini.appendChild(d);});
+    right.appendChild(mini);
+    const open=el('div','open'); open.append(document.createTextNode('Open countdown '),el('span','arr','→'));
+    right.appendChild(open);
+    f.append(left,right);
+    const go=()=>openDetail(first.id);
+    f.addEventListener('click',go);
+    f.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}});
+    featureWrap.appendChild(f);
+
+    if(rest.length){
+      restWrap.appendChild(el('div','label','More countdowns'));
+      const grid=el('div','cards');
+      rest.forEach((it,i)=>{
+        const c=el('button','card'); c.dataset.theme=it.theme; c.dataset.id=it.id;
+        c.style.animationDelay=`${80+i*70}ms`;
+        c.setAttribute('aria-label',`Open the ${it.title} countdown`);
+        if(it.provisional) c.appendChild(el('span','tag','Date TBA'));
+        c.append(el('div','e',it.emoji),el('h3',null,it.title),el('div','d',dateLine(it)));
+        const cnt=el('div','count'); cnt.append(el('b'),el('span'));
+        const sub=el('div','sub'); const bar=el('div','bar'); bar.appendChild(el('i'));
+        c.append(cnt,sub,bar);
+        c.addEventListener('click',()=>openDetail(it.id));
+        grid.appendChild(c);
+      });
+      restWrap.appendChild(grid);
+    }
+    tickHome();
+  }
+
+  function tickHome(){
+    const list=visible(); if(!list.length) return;
+    const first=list[0]; const st=stateOf(first);
+    const mini=$('miniClock');
+    if(mini){
+      const p=split((st==='here'?first.endsAt:first.target)-now());
+      const vals=[p.d,pad(p.h),pad(p.m),pad(p.s)];
+      [...mini.children].forEach((d,i)=>{ d.firstChild.textContent=vals[i]; });
+    }
+    restWrap.querySelectorAll('.card').forEach(c=>{
+      const it=ITEMS.find(x=>x.id===c.dataset.id); if(!it) return;
+      const st=stateOf(it); const p=split((st==='here'?it.endsAt:it.target)-now());
+      const [b,span]=c.querySelector('.count').children;
+      if(st==='here'){ b.textContent='🎉'; span.textContent='happening now'; }
+      else if(p.d>0){ b.textContent=p.d; span.textContent=p.d===1?'day to go':'days to go'; }
+      else { b.textContent=`${p.h}h ${pad(p.m)}m`; span.textContent='to go'; }
+      const sd=schoolDaysLeft(it);
+      c.querySelector('.sub').textContent = st==='here' ? `Back ${it.back?fmtShort(it.back):'soon'}`
+        : `${sd.n} more school day${sd.n===1?'':'s'}`;
+      c.querySelector('.bar i').style.width=(progressOf(it)*100).toFixed(1)+'%';
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // Countdown screen
+  // ---------------------------------------------------------------------
+  const units=[...$('clock').querySelectorAll('.unit .n')];
+  let lastVals=[], celebrated=new Set();
+
+  let swT=null;
+  function switching(){ document.body.classList.add('switching'); clearTimeout(swT);
+    swT=setTimeout(()=>document.body.classList.remove('switching'),650); }
+
+  function openDetail(id){
+    current=ITEMS.find(x=>x.id===id); if(!current) return;
+    switching();
+    setTheme(current.theme);
+    $('dEmoji').textContent=current.emoji;
+    $('dTitle').textContent=current.title;
+    $('dDates').textContent=dateLine(current);
+    $('dNote').textContent=current.note||'';
+    $('pFrom').textContent=`Since ${fmtShort(current.from||D.first_day)}`;
+    lastVals=[];
+    detailEl.classList.add('on'); homeEl.classList.remove('on');
+    detailEl.scrollTop=0;
+    updateNav(); tickDetail();
+    setTimeout(()=>$('back').focus({preventScroll:true}),60);
+  }
+  function closeDetail(){
+    current=null;
+    switching();
+    homeEl.classList.add('on'); detailEl.classList.remove('on');
+    renderHome();
+  }
+  function updateNav(){
+    const list=visible(); const i=list.findIndex(x=>x.id===current.id);
+    $('prevEv').disabled=i<=0; $('nextEv').disabled=i<0||i>=list.length-1;
+  }
+  function step(dir){
+    const list=visible(); const i=list.findIndex(x=>x.id===current.id);
+    const n=list[i+dir]; if(n) openDetail(n.id);
+  }
+
+  function tickDetail(){
+    if(!current) return;
+    const st=stateOf(current);
+    if(st==='past'){ closeDetail(); return; }
+    const here=st==='here';
+    $('dKicker').textContent = here
+      ? (current.here_kicker || (current.isBreak ? "🎉 It's here! Back to school in" : "🎉 It's today!"))
+      : 'Countdown to';
+    // Some days (like a graduation) don't need a clock once they've arrived.
+    const showClock = !(here && current.here_clock===false);
+    $('clock').style.display = showClock ? '' : 'none';
+    $('progress').style.display = showClock && current.from ? '' : 'none';
+    const p=split((here?current.endsAt:current.target)-now());
+    const vals=[String(p.d),pad(p.h),pad(p.m),pad(p.s)];
+    units.forEach((u,i)=>{
+      if(vals[i]!==lastVals[i]){ u.textContent=vals[i]; if(lastVals.length){u.classList.remove('tick'); void u.offsetWidth; u.classList.add('tick');} }
+    });
+    $('uD').classList.toggle('d3',vals[0].length>=3);
+    $('uD').querySelector('.u').textContent=p.d===1?'Day':'Days';
+    lastVals=vals;
+    $('clock').setAttribute('aria-label',`${p.d} days, ${p.h} hours, ${p.m} minutes`);
+
+    const pct=here?1:progressOf(current);
+    $('pBar').style.width=(pct*100).toFixed(2)+'%';
+    $('pPct').textContent = here ? '100% · made it!' : `${Math.floor(pct*100)}% of the way there`;
+
+    const facts=$('facts'); facts.innerHTML='';
+    const fact=(icon,html)=>{const f=el('span','fact'); f.append(document.createTextNode(icon+' ')); const b=el('span'); b.innerHTML=html; f.appendChild(b); facts.appendChild(f);};
+    if(!here){
+      const sd=schoolDaysLeft(current);
+      fact('📚',`<b>${sd.n}</b> more school day${sd.n===1?'':'s'}`);
+      if(sd.half) fact('🕧',`includes <b>${sd.half}</b> half day${sd.half===1?'':'s'}`);
+    }
+    if(current.isBreak && current.back) fact('🏫',`Back to school <b>${fmtShort(current.back)}</b>`);
+    if(current.provisional) fact('⏳','8th grade date <b>not posted yet</b>');
+
+    if(here && !celebrated.has(current.id)){ celebrated.add(current.id); confetti(); }
+  }
+
+  $('back').addEventListener('click',closeDetail);
+  $('prevEv').addEventListener('click',()=>step(-1));
+  $('nextEv').addEventListener('click',()=>step(1));
+  document.addEventListener('keydown',e=>{
+    if(!current) return;
+    if(e.key==='Escape') closeDetail();
+    else if(e.key==='ArrowLeft') step(-1);
+    else if(e.key==='ArrowRight') step(1);
+  });
+
+  // ---------------------------------------------------------------------
+  // Themes + particle effects
+  // ---------------------------------------------------------------------
+  let theme='home';
+  function setTheme(t){
+    theme=t||'home';
+    document.body.dataset.theme=theme;
+    seedParticles();
+  }
+
+  const cv=$('fx'), ctx=cv.getContext&&cv.getContext('2d');
+  let W=0,H=0,DPR=1,parts=[],burst=[],raf=null;
+  function resize(){
+    if(!ctx) return;
+    DPR=Math.min(2,window.devicePixelRatio||1);
+    W=cv.clientWidth; H=cv.clientHeight;
+    cv.width=W*DPR; cv.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);
+    seedParticles();
+  }
+  const rand=(a,b)=>a+Math.random()*(b-a);
+  const PALETTE={
+    winter:['#ffffff','#dff4ff','#bfe9ff'], spring:['#ffd1e8','#ffb3d9','#ffffff'],
+    autumn:['#ffae5c','#e2612b','#f7c948'], summer:['#fff3b0','#ffe066','#ffffff'],
+    grad:['#ffd34d','#e11d2e','#ffffff'], home:['#ffffff','#ffb3b9','#e11d2e']
+  };
+  function seedParticles(){
+    if(!ctx) return;
+    const count=reduceMotion?0:Math.min(70,Math.round(W*H/16000));
+    const pal=PALETTE[theme]||PALETTE.home;
+    parts=Array.from({length:count},()=>({
+      x:rand(0,W),y:rand(0,H),r:rand(1.2,theme==='winter'?3.4:5.5),
+      vx:rand(-.25,.25),vy:theme==='summer'||theme==='home'?rand(-.45,-.12):rand(.25,.9),
+      rot:rand(0,6.28),vr:rand(-.03,.03),sway:rand(.4,1.4),ph:rand(0,6.28),
+      c:pal[Math.floor(Math.random()*pal.length)],a:rand(.35,.9)
+    }));
+    if(!raf) raf=requestAnimationFrame(frame);
+  }
+  function drawParticle(p,t){
+    ctx.globalAlpha=p.a;
+    ctx.fillStyle=p.c;
+    if(theme==='winter'||theme==='home'){
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,6.283); ctx.fill();
+    }else if(theme==='summer'){
+      const tw=.5+.5*Math.sin(t/400+p.ph); ctx.globalAlpha=p.a*tw;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r*.6,0,6.283); ctx.fill();
+    }else if(theme==='grad'){
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot); ctx.fillRect(-p.r,-p.r*.45,p.r*2,p.r*.9); ctx.restore();
+    }else{ // petals & leaves
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot);
+      ctx.beginPath(); ctx.ellipse(0,0,p.r*1.35,p.r*.62,0,0,6.283); ctx.fill(); ctx.restore();
+    }
+  }
+  function frame(t){
+    raf=null; if(!ctx) return;
+    ctx.clearRect(0,0,W,H);
+    parts.forEach(p=>{
+      p.x+=p.vx+Math.sin(t/1400+p.ph)*.35*p.sway; p.y+=p.vy; p.rot+=p.vr;
+      if(p.y>H+12){p.y=-12;p.x=rand(0,W);} if(p.y<-12){p.y=H+12;p.x=rand(0,W);}
+      if(p.x>W+12)p.x=-12; if(p.x<-12)p.x=W+12;
+      drawParticle(p,t);
+    });
+    for(let i=burst.length-1;i>=0;i--){
+      const b=burst[i]; b.vy+=.18; b.vx*=.99; b.x+=b.vx; b.y+=b.vy; b.rot+=b.vr; b.life-=1;
+      ctx.globalAlpha=Math.max(0,Math.min(1,b.life/40)); ctx.fillStyle=b.c;
+      ctx.save(); ctx.translate(b.x,b.y); ctx.rotate(b.rot); ctx.fillRect(-4,-2,8,4); ctx.restore();
+      if(b.life<=0||b.y>H+20) burst.splice(i,1);
+    }
+    ctx.globalAlpha=1;
+    if((parts.length||burst.length) && !document.hidden) raf=requestAnimationFrame(frame);
+  }
+  function confetti(){
+    if(!ctx||reduceMotion) return;
+    const pal=['#e11d2e','#ffffff','#ffd34d','#7fd3ff','#ff9ccf'];
+    for(let i=0;i<160;i++) burst.push({x:W/2+rand(-60,60),y:H*.35,vx:rand(-7,7),vy:rand(-11,-3),
+      rot:rand(0,6.28),vr:rand(-.3,.3),c:pal[i%pal.length],life:rand(80,150)});
+    if(!raf) raf=requestAnimationFrame(frame);
+  }
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&!raf) raf=requestAnimationFrame(frame); });
+  window.addEventListener('resize',()=>{ clearTimeout(window.__rz); window.__rz=setTimeout(resize,150); });
+
+  // ---------------------------------------------------------------------
+  // Start
+  // ---------------------------------------------------------------------
+  function fmtWhen(iso){try{return new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});}catch(e){return '';}}
+  function start(){
+    if(!D||!D.countdowns){ featureWrap.innerHTML='<div class="empty"><div class="e">⏳</div><h2>Countdowns unavailable</h2><p>Paste embed.html from the GitHub repository into Google Sites.</p></div>'; return; }
+    prepare(); renderHome();
+  }
+  resize();
+  start();
+  $('status').textContent = D && D.generated_at ? `Updated ${fmtWhen(D.generated_at)}` : '';
+
+  // Pick up changes (like the 8th grade date being posted) without needing
+  // a new paste. The copy built into the page is used if this fails.
+  if(LIVE_URL){
+    fetch(LIVE_URL,{cache:'no-store'}).then(r=>r.ok?r.json():Promise.reject(r.status)).then(j=>{
+      if(j&&j.countdowns&&j.countdowns.length){
+        D=j; prepare();
+        $('status').textContent=`Updated ${fmtWhen(D.generated_at)}`;
+        if(current){ const id=current.id; if(ITEMS.find(x=>x.id===id)) openDetail(id); else closeDetail(); }
+        else renderHome();
+      }
+    }).catch(()=>{});
+  }
+
+  setInterval(()=>{ current?tickDetail():tickHome(); }, 1000);
+});
+</script>
+</body>
+</html>
