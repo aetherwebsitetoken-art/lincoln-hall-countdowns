@@ -5,6 +5,18 @@
   "first_day": "2026-08-26",
   "countdowns": [
     {
+      "id": "dc",
+      "title": "Washington D.C. Trip",
+      "emoji": "✈️",
+      "theme": "dc",
+      "kind": "day",
+      "start": "2026-10-10",
+      "time": "08:40",
+      "here_kicker": "✈️ Wheels up! Have a great trip",
+      "here_clock": false,
+      "note": "Counting down to the 8:40 AM flight on Sat, Oct 10."
+    },
+    {
       "id": "thanksgiving",
       "title": "Thanksgiving Break",
       "emoji": "🦃",
