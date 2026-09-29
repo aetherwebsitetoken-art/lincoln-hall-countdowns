@@ -22,6 +22,7 @@
   [data-theme="spring"]{--a:#ffb3d9;--b:#d6428f;--c:#2c0a22}
   [data-theme="summer"]{--a:#ffe066;--b:#ff8a00;--c:#3a1600}
   [data-theme="grad"]  {--a:#ffd34d;--b:#e11d2e;--c:#140305}
+  [data-theme="dc"]    {--a:#8fb8ff;--b:#1f4fa8;--c:#080f24}
 
   html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);
     font-family:var(--font);-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%}
@@ -674,7 +675,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const PALETTE={
     winter:['#ffffff','#dff4ff','#bfe9ff'], spring:['#ffd1e8','#ffb3d9','#ffffff'],
     autumn:['#ffae5c','#e2612b','#f7c948'], summer:['#fff3b0','#ffe066','#ffffff'],
-    grad:['#ffd34d','#e11d2e','#ffffff'], home:['#ffffff','#ffb3b9','#e11d2e']
+    grad:['#ffd34d','#e11d2e','#ffffff'], dc:['#ffffff','#8fb8ff','#e11d2e'],
+    home:['#ffffff','#ffb3b9','#e11d2e']
   };
   function seedParticles(){
     if(!ctx) return;
@@ -693,7 +695,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.fillStyle=p.c;
     if(theme==='winter'||theme==='home'){
       ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,6.283); ctx.fill();
-    }else if(theme==='summer'){
+    }else if(theme==='summer'||theme==='dc'){
       const tw=.5+.5*Math.sin(t/400+p.ph); ctx.globalAlpha=p.a*tw;
       ctx.beginPath(); ctx.arc(p.x,p.y,p.r*.6,0,6.283); ctx.fill();
     }else if(theme==='grad'){
