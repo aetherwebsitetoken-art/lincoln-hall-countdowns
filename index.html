@@ -221,6 +221,35 @@
     .unit.d3 .n{font-size:min(30cqi,18vh,72px)}
     .facts{margin-top:10px}
   }
+  /* ══════════════════════════════════════════════════════════════════
+     THEME — brought in line with the events calendar, lunch menu and
+     weather: same charcoal base, same red, same spring on anything you
+     press. The seasonal colours stay, they're what makes each countdown
+     its own.
+     ══════════════════════════════════════════════════════════════════ */
+  :root{
+    --bg:#1c1c1f;
+    --red:#d42a3c; --red-dark:#9c1426; --red-glow:rgba(212,42,60,.34);
+    --spring:cubic-bezier(.34,1.56,.64,1);
+    --green:#3fa860; --gold:#d9a52b; --blue:#3f7fd6;
+  }
+  [data-theme="winter"]{--b:#3f7fd6}
+  [data-theme="dc"]    {--b:#3f7fd6}
+
+  /* No scanline overlay here, unlike the other embeds: this page already
+     paints a full-screen drifting sky, and a second full-screen layer over
+     it costs frames on a school laptop for texture nobody can see. */
+  .mark{box-shadow:0 4px 14px var(--red-glow)}
+
+  /* Press and hover: springy, with a lift on the break cards. */
+  .card,.d-nav button,.back,.fact{transition:transform .26s var(--spring),
+    background .2s,border-color .2s,box-shadow .26s}
+  .card:active,.d-nav button:active{transform:scale(.97)}
+  @media (hover:hover){
+    .card:hover{transform:translateY(-4px);box-shadow:0 16px 34px rgba(0,0,0,.4)}
+    .d-nav button:hover{background:rgba(255,255,255,.14)}
+  }
+
   @media (prefers-reduced-motion:reduce){
     *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
   }
